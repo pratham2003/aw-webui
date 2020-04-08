@@ -120,6 +120,13 @@ export default {
           pathUrl: '/activity/android',
           icon: 'mobile',
         });
+        this.activityViews.push({
+          name: `${hostname} (Android)`,
+          hostname: hostname,
+          type: 'android',
+          pathUrl: `/activity/${hostname}`,
+          icon: 'mobile',
+        });
       }
     });
   },

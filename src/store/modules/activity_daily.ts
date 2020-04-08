@@ -6,7 +6,11 @@ import queries from '~/queries';
 import { loadClassesForQuery } from '~/util/classes';
 import { get_day_start_with_offset } from '~/util/time';
 
-const default_limit = 100;
+const testingAndroid = true;
+
+// Checks for Android and WebView
+const isAndroidApp =
+  testingAndroid || (navigator.userAgent.includes('Android') && navigator.userAgent.includes('wv'));
 
 interface TimePeriod {
   start: string;
@@ -115,23 +119,30 @@ const actions = {
   },
 
   async query_window({ commit }, { host, timeperiod, filterAFK, filterCategories }: QueryOptions) {
-    const start = moment();
     const periods = [timeperiodToStr(timeperiod)];
+    const start = moment();
     const classes = loadClassesForQuery();
-    const bucket_id_window = 'aw-watcher-window_' + host;
-    const bucket_id_afk = 'aw-watcher-afk_' + host;
-    const q = queries.windowQuery(
-      bucket_id_window,
-      bucket_id_afk,
-      default_limit, // this.top_apps_count,
-      default_limit, // this.top_windowtitles_count,
-      filterAFK,
-      classes,
-      filterCategories
-    );
-    const data = await this._vm.$aw.query(periods, q);
+    if (!isAndroidApp) {
+      const bucket_id_window = 'aw-watcher-window_' + host;
+      const bucket_id_afk = 'aw-watcher-afk_' + host;
+      const q = queries.windowQuery(
+        bucket_id_window,
+        bucket_id_afk,
+        filterAFK,
+        classes,
+        filterCategories
+      );
+      const data = await this._vm.$aw.query(periods, q);
+      commit('query_window_completed', data[0]);
+    } else {
+      // Android
+      // TODO: Get this bucket id automatically
+      const appBucketId = 'aw-watcher-android-test';
+      const q = queries.appQuery(appBucketId, classes, filterCategories);
+      const data = await this.$aw.query(periods, q).catch(this.errorHandler);
+      commit('query_window_completed', data[0]);
+    }
     console.info(`Completed window query in ${moment().diff(start)}ms`);
-    commit('query_window_completed', data[0]);
   },
 
   async query_browser({ state, commit }, { host, timeperiod, filterAFK }: QueryOptions) {
@@ -144,7 +155,6 @@ const actions = {
         state.browser_buckets_available,
         bucket_id_window,
         bucket_id_afk,
-        default_limit, // this.top_web_count
         filterAFK
       );
       const data = await this._vm.$aw.query(periods, q);
@@ -156,7 +166,7 @@ const actions = {
   async query_editor({ state, commit }, { timeperiod }) {
     if (state.editor_buckets_available) {
       const periods = [timeperiodToStr(timeperiod)];
-      const q = queries.editorActivityQuery(state.editor_buckets_available, 100);
+      const q = queries.editorActivityQuery(state.editor_buckets_available);
       const data = await this._vm.$aw.query(periods, q).catch(this.errorHandler);
       commit('query_editor_completed', data[0]);
     }
